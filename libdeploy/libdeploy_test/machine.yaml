@@ -1,3 +1,29 @@
-Name: test
-Driver: virtualbox
+name: test
+driver: virtualbox
+auth:
+    storePath: ./tmp
+    # CaCertPath: CaCertPath
+    # CaPrivateKeyPath: CaPrivateKeyPath
+    # ClientKeyPath: ClientKeyPath
+    # ClientCertPath: ClientCertPath 
+swarm:
+    isSwarm: true
+    host: "tcp://0.0.0.0:3376"
+    image: "swarm:latest"
+	strategy: spread
+	# Address: ./
+	# Discovery: ./
+	# Master: true
+	# IsExperimental:false
+      
+# Engine:
+    # ArbitraryFlags: ./
+	# Env: ./
+	# InsecureRegistry: 
+    #     - ./
+	# Labels: 
+    #     - test
+	# RegistryMirror:
+    #     - ./
+	# InstallURL: 'https\://get.docker.com'   
 

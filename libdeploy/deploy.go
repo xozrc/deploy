@@ -2,50 +2,49 @@ package libdeploy
 
 import (
 	"encoding/json"
-	"io/ioutil"
-	"os"
 	"path/filepath"
-)
-import (
-	"github.com/docker/machine/commands/mcndirs"
+
 	"github.com/docker/machine/libmachine"
 	"github.com/docker/machine/libmachine/auth"
 	"github.com/docker/machine/libmachine/drivers"
 	"github.com/docker/machine/libmachine/engine"
 	"github.com/docker/machine/libmachine/host"
-	"github.com/docker/machine/libmachine/mcnerror"
-	"github.com/ghodss/yaml"
+	"github.com/docker/machine/libmachine/swarm"
 	"github.com/xozrc/deploy/config"
 )
 
-func Deploy(filePath string) (h *host.Host, err error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return
-	}
-
-	c, err := ioutil.ReadAll(f)
-	if err != nil {
-		return
-	}
-
-	mc := &config.MachineConfig{}
-	if err = yaml.Unmarshal(c, mc); err != nil {
-		return
+func Deploy(mc *config.MachineConfig) (h *host.Host, err error) {
+	storePath := ""
+	if mc.Auth != nil {
+		storePath = mc.Auth.StorePath
 	}
 
 	hostOpts := hostOptsFromMachineConfig(mc)
-
 	driverOpts := driverOptsFromMachineConfig(mc)
 
-	return deploy(mc.Name, mc.Driver, hostOpts, driverOpts)
+	return deploy(storePath, mc.Name, mc.Driver, hostOpts, driverOpts)
 }
 
-func deploy(hostName, driverName string, hostOpts *host.Options, driverOpts drivers.DriverOptions) (h *host.Host, err error) {
+func Undeploy(mc *config.MachineConfig) {
+	storePath := mc.Auth.StorePath
+	api := libmachine.NewClient(storePath, getMachineCertDir(storePath))
 
-	storePath := mcndirs.GetBaseDir()
+	hostName := mc.Name
 
-	api := libmachine.NewClient(storePath, mcndirs.GetMachineCertDir())
+	defer api.Close()
+	h, err := api.Load(hostName)
+	if err != nil {
+		goto RemoveLocal
+	}
+	h.Driver.Remove()
+RemoveLocal:
+	api.Remove(hostName)
+}
+
+func deploy(storePath string, hostName, driverName string, hostOpts *host.Options, driverOpts drivers.DriverOptions) (h *host.Host, err error) {
+
+	api := libmachine.NewClient(storePath, getMachineCertDir(storePath))
+
 	defer api.Close()
 
 	exists, err := api.Exists(hostName)
@@ -55,9 +54,9 @@ func deploy(hostName, driverName string, hostOpts *host.Options, driverOpts driv
 
 	//exist
 	if exists {
-		return nil, mcnerror.ErrHostAlreadyExists{
-			Name: h.Name,
-		}
+		h, err = api.Load(hostName)
+
+		return
 	}
 
 	//base driver
@@ -75,9 +74,9 @@ func deploy(hostName, driverName string, hostOpts *host.Options, driverOpts driv
 		return
 	}
 
-	h.HostOptions.AuthOptions.StorePath = filepath.Join(mcndirs.GetMachineDir(), hostName)
-	h.HostOptions.AuthOptions.ServerKeyPath = filepath.Join(mcndirs.GetMachineDir(), hostName, "server.pem")
-	h.HostOptions.AuthOptions.ServerCertPath = filepath.Join(mcndirs.GetMachineDir(), hostName, "server-key.pem")
+	h.HostOptions.AuthOptions.StorePath = filepath.Join(getMachineDir(storePath), hostName)
+	h.HostOptions.AuthOptions.ServerKeyPath = filepath.Join(getMachineDir(storePath), hostName, "server.pem")
+	h.HostOptions.AuthOptions.ServerCertPath = filepath.Join(getMachineDir(storePath), hostName, "server-key.pem")
 
 	h.HostOptions = mergeHostOpts(h.HostOptions, hostOpts)
 
@@ -110,7 +109,7 @@ func mergeHostOpts(hostOpts *host.Options, extraHostOpts *host.Options) *host.Op
 
 	hostOpts.AuthOptions = mergeAuthOpts(hostOpts.AuthOptions, extraHostOpts.AuthOptions)
 	hostOpts.EngineOptions = mergeEngineOpts(hostOpts.EngineOptions, extraHostOpts.EngineOptions)
-
+	hostOpts.SwarmOptions = mergeSwarmOpts(hostOpts.SwarmOptions, extraHostOpts.SwarmOptions)
 	return hostOpts
 }
 
@@ -131,9 +130,6 @@ func mergeAuthOpts(authOpts *auth.Options, extraAuthOpts *auth.Options) *auth.Op
 	if extraAuthOpts.ClientKeyPath != "" {
 		authOpts.ClientKeyPath = extraAuthOpts.ClientKeyPath
 	}
-	if len(extraAuthOpts.ServerCertSANs) != 0 {
-		authOpts.ServerCertSANs = extraAuthOpts.ServerCertSANs
-	}
 
 	return authOpts
 }
@@ -146,16 +142,8 @@ func mergeEngineOpts(engineOpts *engine.Options, extraEngineOpts *engine.Options
 		engineOpts.ArbitraryFlags = extraEngineOpts.ArbitraryFlags
 	}
 
-	if len(extraEngineOpts.DNS) != 0 {
-		engineOpts.DNS = extraEngineOpts.DNS
-	}
-
 	if len(extraEngineOpts.Env) != 0 {
 		engineOpts.Env = extraEngineOpts.Env
-	}
-
-	if extraEngineOpts.GraphDir != "" {
-		engineOpts.GraphDir = extraEngineOpts.GraphDir
 	}
 
 	if len(extraEngineOpts.InsecureRegistry) != 0 {
@@ -166,29 +154,45 @@ func mergeEngineOpts(engineOpts *engine.Options, extraEngineOpts *engine.Options
 		engineOpts.InstallURL = extraEngineOpts.InstallURL
 	}
 
-	engineOpts.Ipv6 = extraEngineOpts.Ipv6
-
 	if len(extraEngineOpts.Labels) != 0 {
 		engineOpts.Labels = extraEngineOpts.Labels
 	}
 
-	if extraEngineOpts.LogLevel != "" {
-		engineOpts.LogLevel = extraEngineOpts.LogLevel
-	}
 	if len(extraEngineOpts.RegistryMirror) != 0 {
 		engineOpts.RegistryMirror = extraEngineOpts.RegistryMirror
 	}
 
-	engineOpts.SelinuxEnabled = extraEngineOpts.SelinuxEnabled
-
-	if extraEngineOpts.StorageDriver != "" {
-		engineOpts.StorageDriver = extraEngineOpts.StorageDriver
-	}
-	engineOpts.TLSVerify = extraEngineOpts.TLSVerify
 	return engineOpts
+
+}
+
+func mergeSwarmOpts(swarmOpts *swarm.Options, extraSwarmOpts *swarm.Options) *swarm.Options {
+	if extraSwarmOpts == nil {
+		return swarmOpts
+	}
+
+	if extraSwarmOpts.Host == "" {
+		extraSwarmOpts.Host = swarmOpts.Host
+	}
+
+	if extraSwarmOpts.Image == "" {
+		extraSwarmOpts.Image = swarmOpts.Image
+	}
+
+	if extraSwarmOpts.Strategy == "" {
+		extraSwarmOpts.Strategy = swarmOpts.Strategy
+	}
+	return extraSwarmOpts
 
 }
 
 func driverOptsFromMachineConfig(mc *config.MachineConfig) drivers.DriverOptions {
 	return nil
+}
+
+func getMachineCertDir(baseDir string) string {
+	return filepath.Join(baseDir, "certs")
+}
+func getMachineDir(baseDir string) string {
+	return filepath.Join(baseDir, "machines")
 }

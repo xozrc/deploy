@@ -1,11 +1,11 @@
 package libdeploy_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-)
-import (
+	"github.com/xozrc/deploy/config"
 	"github.com/xozrc/deploy/libdeploy"
 )
 
@@ -14,6 +14,13 @@ const (
 )
 
 func TestDeploy(t *testing.T) {
-	_, err := libdeploy.Deploy(deployFile)
+	mc, err := config.MachineConfigFromFile(deployFile)
+	fmt.Printf("%v\n", mc.Auth)
+	if !assert.NoError(t, err, "") {
+		return
+	}
+	_, err = libdeploy.Deploy(mc)
+	defer libdeploy.Undeploy(mc)
 	assert.NoError(t, err, "")
+
 }

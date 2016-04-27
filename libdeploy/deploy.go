@@ -182,6 +182,11 @@ func mergeSwarmOpts(swarmOpts *swarm.Options, extraSwarmOpts *swarm.Options) *sw
 	if extraSwarmOpts.Strategy == "" {
 		extraSwarmOpts.Strategy = swarmOpts.Strategy
 	}
+
+	if len(extraSwarmOpts.ArbitraryFlags) == 0 {
+		extraSwarmOpts.ArbitraryFlags = swarmOpts.ArbitraryFlags
+	}
+
 	return extraSwarmOpts
 
 }

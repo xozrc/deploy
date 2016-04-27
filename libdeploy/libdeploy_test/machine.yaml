@@ -1,7 +1,7 @@
 name: test
 driver: virtualbox
 auth:
-    storePath: ./tmp
+    storePath: "C:\\tmp"
     # CaCertPath: CaCertPath
     # CaPrivateKeyPath: CaPrivateKeyPath
     # ClientKeyPath: ClientKeyPath
@@ -10,20 +10,25 @@ swarm:
     isSwarm: true
     host: "tcp://0.0.0.0:3376"
     image: "swarm:latest"
-	strategy: spread
-	# Address: ./
-	# Discovery: ./
-	# Master: true
-	# IsExperimental:false
-      
-# Engine:
-    # ArbitraryFlags: ./
-	# Env: ./
-	# InsecureRegistry: 
-    #     - ./
-	# Labels: 
-    #     - test
-	# RegistryMirror:
-    #     - ./
-	# InstallURL: 'https\://get.docker.com'   
+    strategy: spread
+    discovery: "consul://192.168.99.101:8500/"
+    master: true
+    isExperimental: false
+    arbitaryFlags:
+        - "replication=true"
+    # it seems no nesscerray
+    # Address: ./
+engine:
+    installURL: "https://get.docker.com"
+    #registryMirror:
+    #insecureRegistry:
+    #    - ./   
+    labels:
+        - "a=b"
+    arbitaryFlags:  
+        - "cluster-store=consul://192.168.99.101:8500/"
+    env: 
+        - ./
+    storageDriver: aufs
+
 

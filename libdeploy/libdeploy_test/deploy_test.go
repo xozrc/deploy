@@ -15,7 +15,7 @@ const (
 
 func TestDeploy(t *testing.T) {
 	mc, err := config.MachineConfigFromFile(deployFile)
-	fmt.Printf("%v\n", mc.Auth)
+	fmt.Printf("%v,%v\n", mc.Auth, mc.Swarm)
 	if !assert.NoError(t, err, "") {
 		return
 	}

@@ -14,10 +14,10 @@ swarm:
     discovery: "consul://192.168.99.101:8500/"
     master: true
     isExperimental: false
-    arbitaryFlags:
+    arbitraryFlags:
         - "replication=true"
     # it seems no nesscerray
-    # Address: ./
+    #address:
 engine:
     installURL: "https://get.docker.com"
     #registryMirror:
@@ -25,10 +25,10 @@ engine:
     #    - ./   
     labels:
         - "a=b"
-    arbitaryFlags:  
+    arbitraryFlags:  
         - "cluster-store=consul://192.168.99.101:8500/"
     env: 
-        - ./
+        - "a=b"
     storageDriver: aufs
 
 

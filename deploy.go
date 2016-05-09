@@ -50,6 +50,7 @@ func Deploy(nc *config.NodeConfig) (h *host.Host, err error) {
 		if err != nil {
 			return nil, err
 		}
+
 		ts, err := h.Driver.GetState()
 		//already running
 		if ts == state.Running {
@@ -60,6 +61,8 @@ func Deploy(nc *config.NodeConfig) (h *host.Host, err error) {
 		if err != nil {
 			return nil, err
 		}
+
+		//check swarm
 
 		//fix:test certs
 		err = h.ConfigureAuth()
